@@ -1,14 +1,11 @@
-import { combineReducers } from 'redux';
-import authReducer from './authReducer';
-import userReducer from './userReducer';
-import itineraryReducer from './itineraryReducer';
-import preferenceReducer from './preferenceReducer';
+import * as authActions from './authActions';
+import * as userActions from './userActions';
+import * as itineraryActions from './itineraryActions';
+import * as preferenceActions from './preferenceActions';
 
-const rootReducer = combineReducers({
-  auth: authReducer,
-  user: userReducer,
-  itinerary: itineraryReducer,
-  preferences: preferenceReducer
-});
-
-export default rootReducer;
+export { 
+  authActions, 
+  userActions, 
+  itineraryActions, 
+  preferenceActions 
+};

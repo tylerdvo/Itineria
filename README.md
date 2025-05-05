@@ -138,7 +138,7 @@ For testing purposes, you can use the following demo credentials:
 - Password: password123
 
 ## Development Notes
-
+    
 ### Simplified Version for Demonstration
 
 The current implementation includes:

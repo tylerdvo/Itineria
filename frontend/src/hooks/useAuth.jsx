@@ -5,6 +5,15 @@ import { login, register, logout } from '../redux/actions/authActions';
 export const useAuth = () => {
   const dispatch = useDispatch();
   const auth = useSelector(state => state.auth);
+
+  // Prevent crash if auth is undefined (e.g., before Redux store is ready)
+  const safeAuth = auth || {
+    user: null,
+    isAuthenticated: false,
+    loading: false,
+    error: null
+  };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,7 +28,6 @@ export const useAuth = () => {
     checkAuthState();
   }, [checkAuthState]);
 
-  // Login handler
   const handleLogin = async (email, password) => {
     setError(null);
     setLoading(true);
@@ -34,7 +42,6 @@ export const useAuth = () => {
     }
   };
 
-  // Register handler
   const handleRegister = async (name, email, password) => {
     setError(null);
     setLoading(true);
@@ -49,7 +56,6 @@ export const useAuth = () => {
     }
   };
 
-  // Logout handler
   const handleLogout = async () => {
     setError(null);
     try {
@@ -62,15 +68,13 @@ export const useAuth = () => {
   };
 
   return {
-    user: auth.user,
-    isAuthenticated: auth.isAuthenticated,
-    loading,
-    error,
+    user: safeAuth.user,
+    isAuthenticated: safeAuth.isAuthenticated,
+    loading: safeAuth.loading || loading,
+    error: safeAuth.error || error,
     login: handleLogin,
     register: handleRegister,
     logout: handleLogout,
     checkAuthState
   };
 };
-
-export default useAuth;

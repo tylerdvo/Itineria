@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: ../docker/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://backend:5000/api
+      - REACT_APP_ML_URL=http://ml-service:5001/api
+    depends_on:
+      - backend
+      - ml-service
+    networks:
+      - itinera-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ../../backend/api
+      dockerfile: ../../docker/backend/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../../backend/api:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/itinera
+      - ML_SERVICE_URL=http://ml-service:5001/api
+    depends_on:
+      - mongo
+    networks:
+      - itinera-network
+
+  # ML Service
+  ml-service:
+    build:
+      context: ../../backend/ml-service
+      dockerfile: ../../docker/ml-service/Dockerfile
+    ports:
+      - "5001:5001"
+    volumes:
+      - ../../backend/ml-service:/app
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+      - PORT=5001
+    networks:
+      - itinera-network
+
+  # MongoDB
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - itinera-network
+
+networks:
+  itinera-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
