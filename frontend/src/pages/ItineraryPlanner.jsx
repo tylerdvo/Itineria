@@ -1,324 +1,183 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Box, Container, Typography, Stepper, Step, StepLabel, 
-  Button, CircularProgress, Paper, Grid, Alert, Divider
+  Stepper, 
+  Step, 
+  StepLabel, 
+  Button, 
+  Box, 
+  Typography, 
+  Paper,
+  Container,
+  Divider,
+  IconButton
 } from '@mui/material';
+import ItineraryBuilder from '../components/itinerary/ItineraryBuilder';
+import PreferenceForm from '../components/preferences/PreferenceForm';
+import ItineraryView from '../components/itinerary/ItineraryView';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckIcon from '@mui/icons-material/Check';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { useItinerary } from '../hooks/useItinerary';
-import ItineraryBuilder from '../components/itinerary/ItineraryBuilder';
-import PreferenceForm from '../components/preferences/PreferenceForm';
-
-const steps = ['Choose Destinations', 'Set Preferences', 'Generate Itinerary', 'Customize & Finalize'];
+import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 
 const ItineraryPlanner = () => {
-  const navigate = useNavigate();
-  const { id } = useParams(); // For editing existing itineraries
-  const { user } = useAuth();
-  const { 
-    getItinerary, 
-    getUserPreferences, 
-    createItinerary, 
-    updateItinerary, 
-    generateItinerary,
-    loading, 
-    error 
-  } = useItinerary();
-  
   const [activeStep, setActiveStep] = useState(0);
+  const [editMode, setEditMode] = useState(false);
   const [itineraryData, setItineraryData] = useState({
-    title: '',
-    description: '',
-    startDate: '',
-    endDate: '',
-    destinations: [''],
-    activities: []
+    activities: [],
+    preferences: {}
   });
-  const [userPreferences, setUserPreferences] = useState(null);
-  const [generatedItinerary, setGeneratedItinerary] = useState(null);
-  const [processingItinerary, setProcessingItinerary] = useState(false);
-  const [aiMessage, setAiMessage] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
+  const navigate = useNavigate();
 
+  // Check if there's an activity to edit from the dashboard
   useEffect(() => {
-    const fetchPreferences = async () => {
-      if (user) {
-        try {
-          const preferences = await getUserPreferences(user.id);
-          setUserPreferences(preferences);
-        } catch (err) {
-          console.error('Failed to fetch user preferences:', err);
-        }
+    const editActivityData = sessionStorage.getItem('editActivity');
+    
+    if (editActivityData) {
+      try {
+        const activityToEdit = JSON.parse(editActivityData);
+        // Set edit mode to true
+        setEditMode(true);
+        // Add the activity to edit to the itinerary data
+        setItineraryData(prev => ({
+          ...prev,
+          activities: [activityToEdit]
+        }));
+        // Clear the session storage item
+        sessionStorage.removeItem('editActivity');
+      } catch (error) {
+        console.error('Failed to parse activity to edit:', error);
       }
-    };
-
-    const fetchItinerary = async () => {
-      if (id) {
-        try {
-          const data = await getItinerary(id);
-          setItineraryData(data);
-          setIsEditing(true);
-        } catch (err) {
-          console.error('Failed to fetch itinerary:', err);
-        }
-      }
-    };
-
-    fetchPreferences();
-    if (id) {
-      fetchItinerary();
     }
-  }, [user, id, getItinerary, getUserPreferences]);
+  }, []);
+
+  const steps = ['Build Itinerary', 'Set Preferences', 'Review'];
 
   const handleNext = () => {
-    // Validation would go here
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-
-    // If moving to the generate step, trigger AI generation
-    if (activeStep === 1) {
-      handleGenerateItinerary();
-    }
+    setActiveStep((prevStep) => prevStep + 1);
   };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    setActiveStep((prevStep) => prevStep - 1);
   };
 
-  const handleGenerateItinerary = async () => {
-    setProcessingItinerary(true);
-    setAiMessage('Analyzing your preferences...');
-    
-    // Simulate AI processing steps with messages
-    setTimeout(() => setAiMessage('Researching destinations...'), 2000);
-    setTimeout(() => setAiMessage('Finding the best activities...'), 4000);
-    setTimeout(() => setAiMessage('Optimizing your schedule...'), 6000);
-    
-    try {
-      // This would be a real API call in production
-      const generated = await generateItinerary({
-        destinations: itineraryData.destinations,
-        startDate: itineraryData.startDate,
-        endDate: itineraryData.endDate,
-        preferences: userPreferences
-      });
-      
-      setGeneratedItinerary(generated);
-      
-      // Update our itinerary data with the AI-generated content
-      setItineraryData(prevData => ({
-        ...prevData,
-        activities: generated.activities || [],
-        // Other fields that the AI might have enhanced
-      }));
-      
-      setAiMessage('Itinerary successfully generated!');
-    } catch (err) {
-      console.error('Failed to generate itinerary:', err);
-      setAiMessage('Error generating itinerary. Please try again.');
-    } finally {
-      setProcessingItinerary(false);
+  const handleFinish = () => {
+    // Here you could navigate to dashboard or perform other actions
+    alert('Itinerary created successfully!');
+    // Navigate to dashboard
+    navigate('/dashboard');
+  };
+
+  const handleBackToDashboard = () => {
+    // Navigate back to dashboard
+    navigate('/dashboard');
+  };
+
+  const updateActivities = (activities) => {
+    setItineraryData((prev) => ({ ...prev, activities }));
+  };
+
+  const updatePreferences = (preferences) => {
+    // Log to confirm preferences are received
+    console.log("Received preferences in ItineraryPlanner:", preferences);
+    setItineraryData((prev) => ({ ...prev, preferences }));
+  };
+
+  const canProceed = () => {
+    // Check if user can proceed to next step
+    if (activeStep === 0) {
+      return itineraryData.activities.length > 0;
     }
+    return true;
   };
 
-  const handleSaveItinerary = async () => {
-    try {
-      if (isEditing) {
-        await updateItinerary(id, itineraryData);
-      } else {
-        const savedItinerary = await createItinerary({
-          ...itineraryData,
-          userId: user.id
-        });
-        navigate(`/itinerary/${savedItinerary.id}`);
-      }
-    } catch (err) {
-      console.error('Failed to save itinerary:', err);
-    }
-  };
-
-  const handleItineraryChange = (updatedData) => {
-    setItineraryData(prevData => ({
-      ...prevData,
-      ...updatedData
-    }));
-  };
-
-  const handlePreferencesSave = (preferences) => {
-    setUserPreferences(preferences);
-    handleNext();
-  };
-
-  const getStepContent = (step) => {
+  const renderStepContent = (step) => {
     switch (step) {
       case 0:
-        // Basic itinerary information and destinations
         return (
-          <ItineraryBuilder 
-            itinerary={itineraryData}
-            onChange={handleItineraryChange}
-            step="basic" // To control which part of the form to show
+          <ItineraryBuilder
+            onActivityAdded={updateActivities}
+            initialActivities={itineraryData.activities}
+            onNext={handleNext}
+            editMode={editMode}
           />
         );
       case 1:
-        // User preferences
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Your Travel Preferences
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Tell us about your travel style to personalize your itinerary.
-            </Typography>
-            
-            <PreferenceForm 
-              onSave={handlePreferencesSave}
-              existingPreferences={userPreferences}
-            />
-          </Box>
-        );
-      case 2:
-        // AI Generation step
-        return (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h5" gutterBottom>
-              {processingItinerary ? 'Creating Your Perfect Itinerary' : 'Itinerary Generated'}
-            </Typography>
-            
-            {processingItinerary ? (
-              <Box>
-                <CircularProgress size={60} sx={{ my: 3 }} />
-                <Typography variant="body1" sx={{ mt: 2 }}>
-                  {aiMessage}
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 4 }}>
-                  This may take a minute as our AI crafts a personalized experience for you.
-                </Typography>
-              </Box>
-            ) : (
-              <Box>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    color: 'success.main',
-                    my: 3
-                  }}
-                >
-                  <CheckIcon sx={{ fontSize: 60 }} />
-                </Box>
-                
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Your itinerary is ready!
-                </Typography>
-                
-                <Typography variant="body1" paragraph>
-                  We've created an itinerary with {itineraryData.activities.length} activities
-                  based on your preferences.
-                </Typography>
-                
-                <Button 
-                  variant="contained" 
-                  color="primary"
-                  onClick={handleNext}
-                  sx={{ mt: 2 }}
-                >
-                  Review & Customize
-                </Button>
-              </Box>
-            )}
-          </Box>
-        );
-      case 3:
-        // Customization step
-        return (
-          <ItineraryBuilder 
-            itinerary={itineraryData}
-            onChange={handleItineraryChange}
-            step="activities" // To show the activities part of the form
+          <PreferenceForm 
+            onSave={updatePreferences} 
+            existingPreferences={itineraryData.preferences}
           />
         );
+      case 2:
+        return <ItineraryView itineraryData={itineraryData} />;
       default:
-        return 'Unknown step';
+        return <Typography>Unknown Step</Typography>;
     }
   };
 
-  if (loading && !processingItinerary) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
-    <Container maxWidth="md">
-      <Paper sx={{ p: 4, my: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          {isEditing ? 'Edit Itinerary' : 'Create Your Travel Itinerary'}
-        </Typography>
+    <Container maxWidth="lg">
+      <Paper elevation={2} sx={{ p: 4, my: 4, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h4" color="primary">
+            Plan Your Trip
+          </Typography>
+          <IconButton 
+            onClick={handleBackToDashboard} 
+            aria-label="back to dashboard"
+            sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' } }}
+          >
+            <KeyboardBackspaceIcon /> 
+            <Typography variant="button" sx={{ ml: 1 }}>Back to Dashboard</Typography>
+          </IconButton>
+        </Box>
+        <Divider sx={{ mb: 4 }} />
         
-        <Stepper activeStep={activeStep} sx={{ pt: 3, pb: 5 }}>
+        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
           {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
           ))}
         </Stepper>
-        
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-        
-        {getStepContent(activeStep)}
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-            startIcon={<ArrowBackIcon />}
-          >
-            Back
-          </Button>
-          
-          <Box>
+
+        <Box sx={{ mt: 4 }}>{renderStepContent(activeStep)}</Box>
+
+        {/* Only show bottom navigation buttons for steps 1 and 2 */}
+        {(activeStep === 1 || activeStep === 2) && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button 
+              startIcon={<ArrowBackIcon />}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+            
             {activeStep === steps.length - 1 ? (
               <Button
                 variant="contained"
                 color="primary"
-                onClick={handleSaveItinerary}
-                startIcon={<CheckIcon />}
-                disabled={loading}
+                onClick={handleFinish}
+                endIcon={<CheckIcon />}
+                sx={{ px: 4 }}
               >
-                {isEditing ? 'Update Itinerary' : 'Save Itinerary'}
+                Finish
               </Button>
             ) : (
-              activeStep === 1 ? (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGenerateItinerary}
-                  startIcon={<AutoFixHighIcon />}
-                  disabled={processingItinerary}
-                >
-                  Generate with AI
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleNext}
-                  endIcon={<ArrowForwardIcon />}
-                  disabled={processingItinerary || (activeStep === 0 && (!itineraryData.destinations[0] || !itineraryData.startDate || !itineraryData.endDate))}
-                >
-                  {activeStep === 2 ? 'Customize' : 'Next'}
-                </Button>
-              )
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleNext}
+                endIcon={<ArrowForwardIcon />}
+                sx={{ px: 4 }}
+                disabled={!canProceed()}
+              >
+                Next
+              </Button>
             )}
           </Box>
-        </Box>
+        )}
       </Paper>
     </Container>
   );

@@ -7,7 +7,7 @@ import preferenceReducer from './preferenceReducer';
 const rootReducer = combineReducers({
   auth: authReducer,
   user: userReducer,
-  itineraries: itineraryReducer,
+  itinerary: itineraryReducer,
   preferences: preferenceReducer
 });
 

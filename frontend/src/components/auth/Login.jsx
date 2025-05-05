@@ -1,149 +1,134 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
-  Box,
-  Typography,
   TextField,
   Button,
-  Grid,
+  Typography,
+  Box,
   Paper,
-  Divider,
   Alert,
+  Grid,
+  Link,
 } from '@mui/material';
-import { Google as GoogleIcon } from '@mui/icons-material';
-
-// Hooks and actions
-import { useAuth } from '../../hooks/useAuth';
-import { login, loginWithGoogle } from '../../redux/actions/authActions';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { login } from '../../redux/actions/authActions';
 
 const Login = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
+    password: ''
   });
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { loginWithEmail, loginWithGoogle: authLoginWithGoogle } = useAuth();
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
 
-  const { email, password } = formData;
+    if (storedUser && isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleEmailLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await loginWithEmail(email, password);
-      dispatch(login({ email, password }));
+      const { email, password } = formData;
+      if (!email || !password) {
+        setError('Please fill in both email and password');
+        return;
+      }
+      await dispatch(login(email, password));
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Failed to log in');
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      const user = await authLoginWithGoogle();
-      dispatch(loginWithGoogle(user));
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Failed to log in with Google');
+      console.error('Register error:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.message || 'Registration failed');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box my={4}>
-        <Paper elevation={3}>
-          <Box p={4}>
-            <Typography variant="h4" align="center" gutterBottom>
-              Log In to Itinera
-            </Typography>
-            
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-            
-            <form onSubmit={handleEmailLogin}>
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                autoFocus
-                value={email}
-                onChange={handleChange}
-              />
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                type="password"
-                id="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={handleChange}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                sx={{ mt: 3, mb: 2 }}
-                disabled={loading}
-              >
-                Log In
-              </Button>
-            </form>
-            
-            <Divider sx={{ my: 2 }}>OR</Divider>
-            
-            <Button
-              fullWidth
-              variant="outlined"
-              color="primary"
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleLogin}
-              disabled={loading}
-            >
-              Log In with Google
-            </Button>
-            
-            <Grid container justifyContent="center" sx={{ mt: 3 }}>
-              <Grid item>
-                <Link to="/register" style={{ textDecoration: 'none' }}>
-                  <Typography color="primary">
-                    Don't have an account? Sign Up
-                  </Typography>
+    <Container maxWidth="sm" sx={{ py: 8 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Welcome Back
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Log in to manage your travel plans
+          </Typography>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type="password"
+            id="password"
+            autoComplete="current-password"
+            value={formData.password}
+            onChange={handleInputChange}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Log In'}
+          </Button>
+
+          <Grid container justifyContent="center">
+            <Grid item>
+              <Typography variant="body2">
+                Don’t have an account?{' '}
+                <Link component={RouterLink} to="/register">
+                  Sign up
                 </Link>
-              </Grid>
+              </Typography>
             </Grid>
-          </Box>
-        </Paper>
-      </Box>
+          </Grid>
+        </Box>
+      </Paper>
     </Container>
   );
 };

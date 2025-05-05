@@ -1,354 +1,342 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Container, Typography, Grid, Paper, Button, 
-  Card, CardContent, CardActions, Divider, Tabs, Tab,
-  CircularProgress, Chip, Avatar, IconButton, Alert
-} from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import itineraryService from '../services/itineraryService';
+import { 
+  Typography, 
+  Box, 
+  Grid, 
+  Paper, 
+  Button, 
+  Card, 
+  CardContent, 
+  CardMedia, 
+  CardActions,
+  Divider,
+  CircularProgress,
+  Stack,
+  IconButton,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import AddIcon from '@mui/icons-material/Add';
 import ExploreIcon from '@mui/icons-material/Explore';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import FavoriteIcon from '@mui/icons-material/Favorite';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import TuneIcon from '@mui/icons-material/Tune';
-import { useAuth } from '../hooks/useAuth';
-import { useItinerary } from '../hooks/useItinerary';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const Dashboard = () => {
+  const user = useSelector((state) => state.auth.user);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { getUserItineraries, error, loading } = useItinerary();
-  const [itineraries, setItineraries] = useState({
-    upcoming: [],
-    past: [],
-    saved: []
-  });
-  const [tabValue, setTabValue] = useState(0);
-  const [loadingPreferences, setLoadingPreferences] = useState(false);
-  const [preferencesComplete, setPreferencesComplete] = useState(false);
 
   useEffect(() => {
     const fetchItineraries = async () => {
       try {
-        const data = await getUserItineraries(user.id);
+        setLoading(true);
         
-        // Sort and categorize itineraries
-        const now = new Date();
-        const upcoming = [];
-        const past = [];
-        const saved = [];
-        
-        data.forEach(itinerary => {
-          const endDate = new Date(itinerary.endDate);
-          if (itinerary.isFavorite) {
-            saved.push(itinerary);
-          } else if (endDate < now) {
-            past.push(itinerary);
-          } else {
-            upcoming.push(itinerary);
-          }
-        });
-        
-        setItineraries({
-          upcoming,
-          past,
-          saved
-        });
+        if (!user || !user._id) {
+          throw new Error('User not authenticated');
+        }
+
+        const data = await itineraryService.getActivities(user._id);
+        setActivities(data);
       } catch (err) {
         console.error('Failed to fetch itineraries:', err);
-      }
-    };
-
-    // Check if user has completed preferences
-    const checkPreferences = async () => {
-      setLoadingPreferences(true);
-      try {
-        // This would normally be an API call
-        // const response = await getUserPreferences(user.id);
-        // setPreferencesComplete(response && Object.keys(response).length > 0);
         
-        // Mock for now
-        setPreferencesComplete(true);
-      } catch (err) {
-        console.error('Failed to fetch preferences:', err);
+        // Don't show error for 404 - it's expected for new users
+        if (err.response && err.response.status !== 404) {
+          setError('Failed to load your itineraries. Please try again.');
+        }
       } finally {
-        setLoadingPreferences(false);
+        setLoading(false);
       }
     };
 
-    if (user) {
-      fetchItineraries();
-      checkPreferences();
-    }
-  }, [user, getUserItineraries]);
+    fetchItineraries();
+  }, [user]);
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+  const handleMenuClick = (event, activity) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedActivity(activity);
   };
 
-  const handleCreateItinerary = () => {
-    navigate('/itinerary/new');
+  const handleMenuClose = () => {
+    setAnchorEl(null);
   };
 
-  const handleViewItinerary = (id) => {
-    navigate(`/itinerary/${id}`);
+  const handleEditActivity = () => {
+    handleMenuClose();
+    // Store the activity to edit in sessionStorage
+    sessionStorage.setItem('editActivity', JSON.stringify(selectedActivity));
+    // Navigate to planner page - use the correct route
+    navigate('/planner');
   };
 
-  const handleEditPreferences = () => {
-    navigate('/preferences');
+  const handleCreateNewItinerary = () => {
+    // Clear any previous edit activity data
+    sessionStorage.removeItem('editActivity');
+    // Navigate to planner page - use the correct route
+    navigate('/planner');
   };
 
-  // Welcome section with quick actions
-  const WelcomeSection = () => (
-    <Paper sx={{ p: 4, mb: 4, borderRadius: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Welcome back, {user?.name || 'Traveler'}!
-          </Typography>
-          <Typography variant="body1" color="textSecondary" paragraph>
-            {itineraries.upcoming.length > 0 
-              ? `You have ${itineraries.upcoming.length} upcoming trip${itineraries.upcoming.length !== 1 ? 's' : ''}.` 
-              : 'Ready to plan your next adventure?'}
-          </Typography>
-        </Box>
-        
-        <Box sx={{ mt: { xs: 2, sm: 0 } }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            size="large"
-            onClick={handleCreateItinerary}
-          >
-            Create New Itinerary
-          </Button>
-        </Box>
-      </Box>
+  const handleDeleteClick = () => {
+    handleMenuClose();
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      // Call API to delete activity
+      await itineraryService.deleteActivity(user._id, selectedActivity._id);
       
-      {!preferencesComplete && !loadingPreferences && (
-        <Alert 
-          severity="info" 
-          action={
-            <Button color="inherit" size="small" onClick={handleEditPreferences}>
-              Set Now
-            </Button>
-          }
-          sx={{ mt: 2 }}
-        >
-          Complete your travel preferences to get personalized recommendations
-        </Alert>
-      )}
-    </Paper>
-  );
+      // Update local state
+      setActivities(activities.filter(activity => activity._id !== selectedActivity._id));
+      
+      // Close dialog
+      setDeleteDialogOpen(false);
+    } catch (err) {
+      console.error('Failed to delete activity:', err);
+      setError('Failed to delete activity. Please try again.');
+      setDeleteDialogOpen(false);
+    }
+  };
 
-  // Itinerary card component
-  const ItineraryCard = ({ itinerary }) => {
-    const startDate = new Date(itinerary.startDate).toLocaleDateString();
-    const endDate = new Date(itinerary.endDate).toLocaleDateString();
-    
-    return (
-      <Card 
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  // Render empty state for new users
+  const renderEmptyState = () => (
+    <Box sx={{ mt: 4, mb: 6 }}>
+      <Paper 
+        elevation={2} 
         sx={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          transition: 'transform 0.2s',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: 3
-          }
+          p: 4, 
+          mb: 4, 
+          borderRadius: 2,
+          textAlign: 'center',
+          background: 'linear-gradient(to right, #f5f7fa, #e4e7eb)'
         }}
       >
-        <CardContent sx={{ flexGrow: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Typography variant="h6" component="h3" gutterBottom>
-              {itinerary.title}
-            </Typography>
-            <IconButton size="small">
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-            <AccessTimeIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-            <Typography variant="body2" color="textSecondary">
-              {startDate} - {endDate}
-            </Typography>
-          </Box>
-          
-          <Box sx={{ mb: 2 }}>
-            {itinerary.destinations.slice(0, 3).map((destination, index) => (
-              <Chip 
-                key={index} 
-                label={destination} 
-                size="small" 
-                sx={{ mr: 0.5, mb: 0.5 }} 
-              />
-            ))}
-            {itinerary.destinations.length > 3 && (
-              <Chip 
-                label={`+${itinerary.destinations.length - 3} more`} 
-                size="small" 
-                variant="outlined"
-                sx={{ mb: 0.5 }}
-              />
-            )}
-          </Box>
-          
-          <Typography variant="body2" color="textSecondary">
-            {itinerary.activities?.length || 0} activities planned
-          </Typography>
-        </CardContent>
-        
-        <CardActions sx={{ justifyContent: 'space-between', padding: 2, pt: 0 }}>
-          <Button 
-            size="small" 
-            startIcon={<ExploreIcon />}
-            onClick={() => handleViewItinerary(itinerary.id)}
-          >
-            View
-          </Button>
-          <IconButton size="small" color={itinerary.isFavorite ? "primary" : "default"}>
-            <FavoriteIcon fontSize="small" />
-          </IconButton>
-        </CardActions>
-      </Card>
-    );
-  };
-
-  // Content for each tab
-  const TabPanel = (props) => {
-    const { children, value, index, ...other } = props;
-    
-    return (
-      <div
-        role="tabpanel"
-        hidden={value !== index}
-        id={`itinerary-tabpanel-${index}`}
-        aria-labelledby={`itinerary-tab-${index}`}
-        {...other}
-      >
-        {value === index && (
-          <Box sx={{ py: 3 }}>
-            {children}
-          </Box>
-        )}
-      </div>
-    );
-  };
-
-  // Empty state component
-  const EmptyState = ({ message, actionText, onAction }) => (
-    <Box sx={{ textAlign: 'center', py: 6 }}>
-      <Typography variant="h6" color="textSecondary" gutterBottom>
-        {message}
-      </Typography>
-      {actionText && onAction && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <TravelExploreIcon sx={{ fontSize: 80, color: 'primary.main', opacity: 0.8 }} />
+        </Box>
+        <Typography variant="h5" gutterBottom color="primary">
+          Ready to plan your adventure?
+        </Typography>
+        <Typography variant="body1" paragraph color="text.secondary">
+          You haven't created any itineraries yet. Start by creating your first travel plan!
+        </Typography>
         <Button 
-          variant="outlined" 
-          color="primary" 
-          onClick={onAction}
-          sx={{ mt: 2 }}
+          variant="contained" 
+          size="large" 
+          startIcon={<AddIcon />}
+          onClick={handleCreateNewItinerary}
+          sx={{ mt: 2, px: 4, py: 1.5 }}
         >
-          {actionText}
+          Create New Itinerary
         </Button>
-      )}
+      </Paper>
+
+      <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+        Explore Travel Ideas
+      </Typography>
+      
+      <Grid container spacing={3}>
+        {popularDestinations.map((destination) => (
+          <Grid item xs={12} sm={6} md={4} key={destination.id}>
+            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardMedia
+                component="img"
+                height="140"
+                image={destination.image}
+                alt={destination.name}
+              />
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Typography gutterBottom variant="h6" component="div">
+                  {destination.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {destination.description}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Button 
+                  size="small" 
+                  startIcon={<ExploreIcon />}
+                  onClick={handleCreateNewItinerary}
+                >
+                  Explore
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // Render activities when user has them
+  const renderActivities = () => (
+    <Box sx={{ mt: 4 }}>
+      <Typography variant="h5" gutterBottom>
+        Your Itinerary Activities
+      </Typography>
+      
+      <Grid container spacing={2}>
+        {activities.map((activity, index) => (
+          <Grid item xs={12} sm={6} md={4} key={activity._id || index}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 2,
+                position: 'relative',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  boxShadow: 6
+                }
+              }}
+            >
+              {/* Menu button */}
+              <IconButton 
+                size="small" 
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+                onClick={(e) => handleMenuClick(e, activity)}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
 
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
-      <WelcomeSection />
+              <Typography variant="subtitle1" gutterBottom><strong>{activity.title}</strong></Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {activity.description || 'No description'}
+              </Typography>
+              <Box sx={{ display: 'flex', mt: 2 }}>
+                <Box sx={{ mr: 3 }}>
+                  <Typography variant="caption" color="text.secondary">DAY</Typography>
+                  <Typography variant="body2"><strong>{activity.day}</strong></Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">TIME</Typography>
+                  <Typography variant="body2"><strong>{activity.time || 'Not specified'}</strong></Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
       
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
-            aria-label="itinerary tabs"
-            indicatorColor="primary"
-            textColor="primary"
-          >
-            <Tab label="Upcoming Trips" id="itinerary-tab-0" />
-            <Tab label="Past Trips" id="itinerary-tab-1" />
-            <Tab label="Saved Itineraries" id="itinerary-tab-2" />
-          </Tabs>
-        </Box>
-        
-        <TabPanel value={tabValue} index={0}>
-          {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-          
-          {itineraries.upcoming.length > 0 ? (
-            <Grid container spacing={3}>
-              {itineraries.upcoming.map((itinerary) => (
-                <Grid item key={itinerary.id} xs={12} sm={6} md={4}>
-                  <ItineraryCard itinerary={itinerary} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <EmptyState 
-              message="You don't have any upcoming trips planned yet"
-              actionText="Create an Itinerary"
-              onAction={handleCreateItinerary}
-            />
-          )}
-        </TabPanel>
-        
-        <TabPanel value={tabValue} index={1}>
-          {itineraries.past.length > 0 ? (
-            <Grid container spacing={3}>
-              {itineraries.past.map((itinerary) => (
-                <Grid item key={itinerary.id} xs={12} sm={6} md={4}>
-                  <ItineraryCard itinerary={itinerary} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <EmptyState 
-              message="You haven't completed any trips yet"
-            />
-          )}
-        </TabPanel>
-        
-        <TabPanel value={tabValue} index={2}>
-          {itineraries.saved.length > 0 ? (
-            <Grid container spacing={3}>
-              {itineraries.saved.map((itinerary) => (
-                <Grid item key={itinerary.id} xs={12} sm={6} md={4}>
-                  <ItineraryCard itinerary={itinerary} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <EmptyState 
-              message="You haven't saved any itineraries yet"
-            />
-          )}
-        </TabPanel>
-      </Box>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-        <Button
-          variant="outlined"
-          color="primary"
-          startIcon={<TuneIcon />}
-          onClick={handleEditPreferences}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />}
+          onClick={handleCreateNewItinerary}
         >
-          Update Travel Preferences
+          Create New Itinerary
         </Button>
       </Box>
-    </Container>
+    </Box>
+  );
+
+  return (
+    <Box p={3}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <FlightTakeoffIcon sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
+        <Typography variant="h4" gutterBottom>
+          Welcome back{user && user.name ? `, ${user.name}` : ''}!
+        </Typography>
+      </Box>
+      
+      <Divider sx={{ mb: 3 }} />
+      
+      {error && (
+        <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
+          <Typography>{error}</Typography>
+        </Paper>
+      )}
+      
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+          <Stack direction="column" spacing={2} alignItems="center">
+            <CircularProgress />
+            <Typography color="text.secondary">Loading your itineraries...</Typography>
+          </Stack>
+        </Box>
+      ) : (
+        activities.length > 0 ? renderActivities() : renderEmptyState()
+      )}
+
+      {/* Activity Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleEditActivity}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          Edit
+        </MenuItem>
+        <MenuItem onClick={handleDeleteClick}>
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+          Delete
+        </MenuItem>
+      </Menu>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+      >
+        <DialogTitle>Delete Activity</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this activity? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
+
+// Sample placeholder data for popular destinations
+const popularDestinations = [
+  {
+    id: 'paris',
+    name: 'Paris, France',
+    description: 'Explore the City of Light with its iconic Eiffel Tower, world-class museums, and charming cafés.',
+    image: '/api/placeholder/400/240',
+  },
+  {
+    id: 'tokyo',
+    name: 'Tokyo, Japan',
+    description: 'Experience the perfect blend of traditional culture and futuristic technology in this vibrant metropolis.',
+    image: '/api/placeholder/400/240',
+  },
+  {
+    id: 'bali',
+    name: 'Bali, Indonesia',
+    description: 'Discover paradise with stunning beaches, lush rice terraces, and spiritual temples.',
+    image: '/api/placeholder/400/240',
+  }
+];
 
 export default Dashboard;

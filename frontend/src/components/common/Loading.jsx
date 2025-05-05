@@ -12,7 +12,7 @@ const Loading = ({ message = 'Loading...' }) => {
         height: '100vh',
       }}
     >
-      <CircularProgress size={60} />
+      <CircularProgress size={60} thickness={4} />
       <Typography variant="h6" sx={{ mt: 2 }}>
         {message}
       </Typography>

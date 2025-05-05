@@ -1,76 +1,71 @@
+import axios from 'axios';
 import { 
-    LOGIN_REQUEST, LOGIN_SUCCESS, LOGIN_FAILURE,
-    REGISTER_REQUEST, REGISTER_SUCCESS, REGISTER_FAILURE,
-    LOGOUT
-  } from '../types';
-  import { auth } from '../../firebase';
-  import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword,
-    signOut
-  } from 'firebase/auth';
-  import api from '../../services/api';
-  
-  export const login = (email, password) => async (dispatch) => {
-    dispatch({ type: LOGIN_REQUEST });
-    
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const { user } = userCredential;
-      
-      // Fetch user data from backend
-      const userData = await api.get(`/users/${user.uid}`);
-      
-      dispatch({
-        type: LOGIN_SUCCESS,
-        payload: userData.data
-      });
-      
-      return userData.data;
-    } catch (error) {
-      dispatch({
-        type: LOGIN_FAILURE,
-        payload: error.message
-      });
-      throw error;
+  LOGIN_REQUEST, LOGIN_SUCCESS, LOGIN_FAILURE,
+  REGISTER_REQUEST, REGISTER_SUCCESS, REGISTER_FAILURE,
+  LOGOUT, FETCH_USER_REQUEST, FETCH_USER_SUCCESS, FETCH_USER_FAILURE
+} from '../types';
+
+export const login = (email, password) => async (dispatch) => {
+  dispatch({ type: LOGIN_REQUEST });
+
+  try {
+    const response = await axios.post('/api/v1/auth/login', { email, password });
+    const user = response.data.user;
+
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('isAuthenticated', 'true');
+
+    dispatch({ type: LOGIN_SUCCESS, payload: user });
+    return user;
+  } catch (error) {
+    dispatch({ type: LOGIN_FAILURE, payload: error.response?.data?.message || error.message });
+    throw error;
+  }
+};
+
+export const register = (name, email, password) => async (dispatch) => {
+  dispatch({ type: REGISTER_REQUEST });
+
+  try {
+    const response = await axios.post('/api/v1/auth/register', { name, email, password });
+    const user = response.data.user;
+
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('isAuthenticated', 'true');
+
+    dispatch({ type: REGISTER_SUCCESS, payload: user });
+    return user;
+  } catch (error) {
+    dispatch({ type: REGISTER_FAILURE, payload: error.response?.data?.message || error.message });
+    throw error;
+  }
+};
+
+export const logout = () => async (dispatch) => {
+  try {
+    localStorage.removeItem('user');
+    localStorage.setItem('isAuthenticated', 'false');
+    dispatch({ type: LOGOUT });
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+};
+
+export const loadUser = () => async (dispatch) => {
+  dispatch({ type: FETCH_USER_REQUEST });
+
+  try {
+    const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+    if (isAuthenticated) {
+      const user = JSON.parse(localStorage.getItem('user'));
+      dispatch({ type: FETCH_USER_SUCCESS, payload: user });
+      return user;
+    } else {
+      dispatch({ type: FETCH_USER_FAILURE, payload: 'Not authenticated' });
+      return null;
     }
-  };
-  
-  export const register = (name, email, password) => async (dispatch) => {
-    dispatch({ type: REGISTER_REQUEST });
-    
-    try {
-      // Create user in Firebase
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const { user } = userCredential;
-      
-      // Create user in backend
-      const userData = await api.post('/users', {
-        id: user.uid,
-        name,
-        email
-      });
-      
-      dispatch({
-        type: REGISTER_SUCCESS,
-        payload: userData.data
-      });
-      
-      return userData.data;
-    } catch (error) {
-      dispatch({
-        type: REGISTER_FAILURE,
-        payload: error.message
-      });
-      throw error;
-    }
-  };
-  
-  export const logout = () => async (dispatch) => {
-    try {
-      await signOut(auth);
-      dispatch({ type: LOGOUT });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
+  } catch (error) {
+    dispatch({ type: FETCH_USER_FAILURE, payload: error.message });
+    throw error;
+  }
+};

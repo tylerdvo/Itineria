@@ -5,18 +5,19 @@ const logger = require('../utils/logger');
 // Register a new user
 exports.registerUser = async (userData) => {
   try {
-    // Create user in MongoDB
+    console.log('📩 Registering user with:', userData); // ADD THIS LINE
+
     const user = await User.create(userData);
-    
-    // Generate JWT token
+
     const token = user.getSignedJwtToken();
-    
     return { user, token };
   } catch (error) {
+    console.error('❌ Registration error:', error.message); // ADD THIS LINE
     logger.error(`Error registering user: ${error.message}`);
     throw error;
   }
 };
+
 
 // Register with Firebase and sync with MongoDB
 exports.registerFirebaseUser = async (firebaseUser) => {

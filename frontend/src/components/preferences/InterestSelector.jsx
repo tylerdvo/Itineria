@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
-import { 
-  Box, Chip, Typography, TextField, Paper,
-  Grid, Autocomplete
-} from '@mui/material';
+import React from 'react';
+import { Box, Chip, Typography, Grid } from '@mui/material';
+// Import icons for interest categories
 import LocalActivityIcon from '@mui/icons-material/LocalActivity';
 import MuseumIcon from '@mui/icons-material/Museum';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
@@ -17,135 +15,109 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import AirplaneTicketIcon from '@mui/icons-material/AirplaneTicket';
 
-// Pre-defined list of common travel interests with icons
-const interestOptions = [
-  { name: 'Cultural', icon: <MuseumIcon fontSize="small" /> },
-  { name: 'Culinary', icon: <RestaurantIcon fontSize="small" /> },
-  { name: 'Nature', icon: <NaturePeopleIcon fontSize="small" /> },
-  { name: 'Shopping', icon: <ShoppingBagIcon fontSize="small" /> },
-  { name: 'Beach', icon: <BeachAccessIcon fontSize="small" /> },
-  { name: 'Art', icon: <PaletteIcon fontSize="small" /> },
-  { name: 'Sports', icon: <SportsIcon fontSize="small" /> },
-  { name: 'Photography', icon: <PhotoCameraIcon fontSize="small" /> },
-  { name: 'Nightlife', icon: <NightlifeIcon fontSize="small" /> },
-  { name: 'History', icon: <AccountBalanceIcon fontSize="small" /> },
-  { name: 'Hiking', icon: <DirectionsWalkIcon fontSize="small" /> },
-  { name: 'Adventure', icon: <LocalActivityIcon fontSize="small" /> },
-  { name: 'Architecture', icon: <AccountBalanceIcon fontSize="small" /> },
-  { name: 'Local Experiences', icon: <AirplaneTicketIcon fontSize="small" /> },
-];
-
 const InterestSelector = ({ selectedInterests = [], onChange }) => {
-  const [customInterest, setCustomInterest] = useState('');
+  // Define all available interests with their icons
+  const interests = [
+    { id: 'sightseeing', name: 'Sightseeing', icon: <LocalActivityIcon /> },
+    { id: 'museums', name: 'Museums & Galleries', icon: <MuseumIcon /> },
+    { id: 'food', name: 'Food & Dining', icon: <RestaurantIcon /> },
+    { id: 'nature', name: 'Nature & Outdoors', icon: <NaturePeopleIcon /> },
+    { id: 'shopping', name: 'Shopping', icon: <ShoppingBagIcon /> },
+    { id: 'beaches', name: 'Beaches', icon: <BeachAccessIcon /> },
+    { id: 'arts', name: 'Arts & Culture', icon: <PaletteIcon /> },
+    { id: 'sports', name: 'Sports & Recreation', icon: <SportsIcon /> },
+    { id: 'photography', name: 'Photography', icon: <PhotoCameraIcon /> },
+    { id: 'nightlife', name: 'Nightlife', icon: <NightlifeIcon /> },
+    { id: 'history', name: 'History', icon: <AccountBalanceIcon /> },
+    { id: 'hiking', name: 'Hiking & Trekking', icon: <DirectionsWalkIcon /> },
+    { id: 'adventure', name: 'Adventure', icon: <AirplaneTicketIcon /> }
+  ];
 
-  const handleToggleInterest = (interest) => {
-    const currentIndex = selectedInterests.indexOf(interest);
-    const newSelectedInterests = [...selectedInterests];
-
-    if (currentIndex === -1) {
-      newSelectedInterests.push(interest);
+  const handleToggle = (interestId) => {
+    let newSelected = [...selectedInterests];
+    
+    if (newSelected.includes(interestId)) {
+      // Remove if already selected
+      newSelected = newSelected.filter(id => id !== interestId);
     } else {
-      newSelectedInterests.splice(currentIndex, 1);
+      // Add if not already selected
+      newSelected.push(interestId);
     }
-
-    onChange(newSelectedInterests);
+    
+    onChange(newSelected);
   };
 
-  const handleAddCustomInterest = () => {
-    if (customInterest && !selectedInterests.includes(customInterest)) {
-      const newSelectedInterests = [...selectedInterests, customInterest];
-      onChange(newSelectedInterests);
-      setCustomInterest('');
-    }
-  };
-
-  const getInterestIcon = (interestName) => {
-    const option = interestOptions.find(opt => opt.name === interestName);
-    return option ? option.icon : <LocalActivityIcon fontSize="small" />;
-  };
-
-  // Filter out already selected interests from the autocomplete
-  const filteredOptions = interestOptions.filter(
-    option => !selectedInterests.includes(option.name)
+  // Group interests by category
+  const culturalInterests = interests.filter(i => 
+    ['museums', 'arts', 'history'].includes(i.id)
+  );
+  
+  const outdoorInterests = interests.filter(i => 
+    ['nature', 'beaches', 'hiking', 'adventure', 'sports'].includes(i.id)
+  );
+  
+  const leisureInterests = interests.filter(i => 
+    ['shopping', 'food', 'nightlife', 'sightseeing', 'photography'].includes(i.id)
   );
 
   return (
     <Box>
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Your Selected Interests
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {selectedInterests.length === 0 ? (
-            <Typography variant="body2" color="textSecondary">
-              No interests selected yet
-            </Typography>
-          ) : (
-            selectedInterests.map((interest) => (
-              <Chip
-                key={interest}
-                label={interest}
-                icon={getInterestIcon(interest)}
-                onDelete={() => handleToggleInterest(interest)}
-                color="primary"
-                variant="outlined"
-                sx={{ m: 0.5 }}
-              />
-            ))
-          )}
-        </Box>
-      </Paper>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Typography variant="subtitle1" gutterBottom>
-            Common Interests
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" gutterBottom>
+            Cultural
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {interestOptions.map((option) => {
-              const isSelected = selectedInterests.includes(option.name);
-              return (
-                <Chip
-                  key={option.name}
-                  label={option.name}
-                  icon={option.icon}
-                  onClick={() => handleToggleInterest(option.name)}
-                  color={isSelected ? "primary" : "default"}
-                  variant={isSelected ? "filled" : "outlined"}
-                  sx={{ m: 0.5 }}
-                />
-              );
-            })}
+            {culturalInterests.map((interest) => (
+              <Chip
+                key={interest.id}
+                icon={interest.icon}
+                label={interest.name}
+                onClick={() => handleToggle(interest.id)}
+                color={selectedInterests.includes(interest.id) ? "primary" : "default"}
+                variant={selectedInterests.includes(interest.id) ? "filled" : "outlined"}
+                sx={{ m: 0.5 }}
+              />
+            ))}
           </Box>
         </Grid>
         
-        <Grid item xs={12} md={6}>
-          <Typography variant="subtitle1" gutterBottom>
-            Add Custom Interest
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" gutterBottom>
+            Outdoors & Adventure
           </Typography>
-          <Autocomplete
-            freeSolo
-            options={filteredOptions.map(option => option.name)}
-            inputValue={customInterest}
-            onInputChange={(event, newValue) => {
-              setCustomInterest(newValue);
-            }}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                label="Type a custom interest" 
-                variant="outlined"
-                fullWidth
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCustomInterest();
-                  }
-                }}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {outdoorInterests.map((interest) => (
+              <Chip
+                key={interest.id}
+                icon={interest.icon}
+                label={interest.name}
+                onClick={() => handleToggle(interest.id)}
+                color={selectedInterests.includes(interest.id) ? "primary" : "default"}
+                variant={selectedInterests.includes(interest.id) ? "filled" : "outlined"}
+                sx={{ m: 0.5 }}
               />
-            )}
-            sx={{ mb: 2 }}
-          />
+            ))}
+          </Box>
+        </Grid>
+        
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" gutterBottom>
+            Leisure & Entertainment
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {leisureInterests.map((interest) => (
+              <Chip
+                key={interest.id}
+                icon={interest.icon}
+                label={interest.name}
+                onClick={() => handleToggle(interest.id)}
+                color={selectedInterests.includes(interest.id) ? "primary" : "default"}
+                variant={selectedInterests.includes(interest.id) ? "filled" : "outlined"}
+                sx={{ m: 0.5 }}
+              />
+            ))}
+          </Box>
         </Grid>
       </Grid>
     </Box>

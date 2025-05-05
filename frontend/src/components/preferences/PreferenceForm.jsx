@@ -34,7 +34,8 @@ const PreferenceForm = ({ onSave, existingPreferences = null }) => {
 
   // Load existing preferences if provided
   useEffect(() => {
-    if (existingPreferences) {
+    if (existingPreferences && Object.keys(existingPreferences).length > 0) {
+      console.log('Loading existing preferences:', existingPreferences);
       setPreferences(prevPrefs => ({
         ...prevPrefs,
         ...existingPreferences
@@ -92,11 +93,31 @@ const PreferenceForm = ({ onSave, existingPreferences = null }) => {
     setSuccessMessage(null);
     
     try {
-      await onSave({
+      // Ensure we have the user ID from our context
+      const userId = user ? (user.id || user._id) : null;
+      
+      // Create the preferences object with correct user ID
+      const preferencesData = {
         ...preferences,
-        userId: user.id
-      });
-      setSuccessMessage('Your travel preferences have been saved successfully!');
+        userId
+      };
+
+      console.log('Saving preferences:', preferencesData);
+      
+      // Call the parent's onSave function if it exists
+      if (typeof onSave === 'function') {
+        await onSave(preferencesData);
+        
+        // Show success message
+        setSuccessMessage('Your travel preferences have been saved successfully!');
+        
+        // Move to next step after a short delay
+        setTimeout(() => {
+          // You might want to handle navigation here
+        }, 1500);
+      } else {
+        throw new Error('No save handler provided');
+      }
     } catch (err) {
       setError('Failed to save preferences. Please try again.');
       console.error('Save preferences error:', err);

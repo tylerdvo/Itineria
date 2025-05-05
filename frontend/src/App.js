@@ -3,10 +3,9 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { useDispatch } from 'react-redux';
-
-// Contexts
-import { useAuth } from './hooks/useAuth';
+import { useDispatch, useSelector } from 'react-redux';
+import { Provider } from 'react-redux';
+import store from './redux/store';
 
 // Components
 import Navbar from './components/common/Navbar';
@@ -21,6 +20,8 @@ import Profile from './pages/Profile';
 import ItineraryPlanner from './pages/ItineraryPlanner';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
+import About from './pages/About';
+import ItineraryView from './components/itinerary/ItineraryView';
 
 // Redux actions
 import { loadUser } from './redux/actions/authActions';
@@ -55,14 +56,18 @@ const theme = createTheme({
   },
 });
 
-function App() {
+const AppContent = () => {
   const dispatch = useDispatch();
-  const { user, loading, checkAuthState } = useAuth();
+  const auth = useSelector(state => state.auth || {});
+  const { isAuthenticated, loading } = auth;
 
   useEffect(() => {
-    checkAuthState();
-    dispatch(loadUser());
-  }, [dispatch, checkAuthState]);
+    try {
+      dispatch(loadUser());
+    } catch (error) {
+      console.error('Error loading user:', error);
+    }
+  }, [dispatch]);
 
   if (loading) {
     return <Loading />;
@@ -75,9 +80,13 @@ function App() {
         <Navbar />
         <main>
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-            <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} />
+            
+            {/* Protected routes */}
             <Route
               path="/dashboard"
               element={
@@ -106,7 +115,7 @@ function App() {
               path="/itinerary/:id"
               element={
                 <ProtectedRoute>
-                  <ItineraryPlanner />
+                  <ItineraryView />
                 </ProtectedRoute>
               }
             />
@@ -117,6 +126,11 @@ function App() {
       </div>
     </ThemeProvider>
   );
+};
+
+function App() {
+  return <AppContent />;
 }
+
 
 export default App;

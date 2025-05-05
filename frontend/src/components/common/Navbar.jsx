@@ -1,273 +1,281 @@
 import React, { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import {
-  AppBar,
-  Box,
-  Toolbar,
-  IconButton,
-  Typography,
-  Menu,
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Button, 
+  Box, 
   Container,
-  Avatar,
-  Button,
-  Tooltip,
+  IconButton,
+  Menu,
   MenuItem,
+  Avatar,
+  Divider,
   Drawer,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Divider,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  ExploreOutlined,
-  DashboardOutlined,
-  AccountCircleOutlined,
-  LoginOutlined,
-  LogoutOutlined,
-  AddOutlined,
-} from '@mui/icons-material';
-
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
+import MenuIcon from '@mui/icons-material/Menu';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import AddIcon from '@mui/icons-material/Add';
+import PersonIcon from '@mui/icons-material/Person';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useAuth } from '../../hooks/useAuth';
 
-const navItems = [
-  {
-    title: 'Home',
-    path: '/',
-    public: true,
-  },
-  {
-    title: 'Dashboard',
-    path: '/dashboard',
-    public: false,
-  },
-  {
-    title: 'Plan Trip',
-    path: '/planner',
-    public: false,
-  },
-];
-
 const Navbar = () => {
-  const [anchorElUser, setAnchorElUser] = useState(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-
-  const handleOpenUserMenu = (event) => {
-    setAnchorElUser(event.currentTarget);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // For the user menu in desktop view
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  
+  // For the drawer in mobile view
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
   };
-
-  const handleCloseUserMenu = () => {
-    setAnchorElUser(null);
+  
+  const handleClose = () => {
+    setAnchorEl(null);
   };
-
+  
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setDrawerOpen(!drawerOpen);
   };
-
+  
   const handleLogout = async () => {
-    handleCloseUserMenu();
     await logout();
+    handleClose();
     navigate('/');
   };
-
+  
+  // Navigation links
+  const navLinks = [
+    { title: 'Home', path: '/' },
+    { title: 'About', path: '/about' }
+  ];
+  
+  // Authenticated links
+  const authLinks = [
+    { title: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
+    { title: 'Create Itinerary', path: '/planner', icon: <AddIcon /> },
+    { title: 'Profile', path: '/profile', icon: <PersonIcon /> }
+  ];
+  
+  // Mobile drawer content
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ width: 250 }}>
-      <Typography variant="h6" sx={{ my: 2, textAlign: 'center' }}>
-        Itinera
-      </Typography>
-      <Divider />
+    <Box sx={{ width: 250, mt: 2 }} role="presentation">
       <List>
-        {navItems.map((item) => (
-          (item.public || user) && (
-            <ListItem
-              button
-              component={RouterLink}
-              to={item.path}
-              key={item.title}
-            >
-              <ListItemIcon>
-                {item.title === 'Home' && <ExploreOutlined />}
-                {item.title === 'Dashboard' && <DashboardOutlined />}
-                {item.title === 'Plan Trip' && <AddOutlined />}
-              </ListItemIcon>
-              <ListItemText primary={item.title} />
-            </ListItem>
-          )
+        {navLinks.map((link) => (
+          <ListItem 
+            button 
+            key={link.title} 
+            component={RouterLink} 
+            to={link.path}
+            onClick={handleDrawerToggle}
+          >
+            <ListItemText primary={link.title} />
+          </ListItem>
         ))}
       </List>
+      
       <Divider />
-      <List>
-        {user ? (
-          <>
-            <ListItem button component={RouterLink} to="/profile">
-              <ListItemIcon>
-                <AccountCircleOutlined />
-              </ListItemIcon>
-              <ListItemText primary="Profile" />
-            </ListItem>
+      
+      {isAuthenticated ? (
+        <>
+          <List>
+            {authLinks.map((link) => (
+              <ListItem 
+                button 
+                key={link.title} 
+                component={RouterLink} 
+                to={link.path}
+                onClick={handleDrawerToggle}
+              >
+                <ListItemIcon>{link.icon}</ListItemIcon>
+                <ListItemText primary={link.title} />
+              </ListItem>
+            ))}
+          </List>
+          <Divider />
+          <List>
             <ListItem button onClick={handleLogout}>
-              <ListItemIcon>
-                <LogoutOutlined />
-              </ListItemIcon>
+              <ListItemIcon><ExitToAppIcon /></ListItemIcon>
               <ListItemText primary="Logout" />
             </ListItem>
-          </>
-        ) : (
-          <ListItem button component={RouterLink} to="/login">
-            <ListItemIcon>
-              <LoginOutlined />
-            </ListItemIcon>
+          </List>
+        </>
+      ) : (
+        <List>
+          <ListItem 
+            button 
+            component={RouterLink} 
+            to="/login"
+            onClick={handleDrawerToggle}
+          >
             <ListItemText primary="Login" />
           </ListItem>
-        )}
-      </List>
+          <ListItem 
+            button 
+            component={RouterLink} 
+            to="/register"
+            onClick={handleDrawerToggle}
+          >
+            <ListItemText primary="Register" />
+          </ListItem>
+        </List>
+      )}
     </Box>
   );
-
+  
   return (
-    <AppBar position="static">
-      <Container maxWidth="xl">
+    <AppBar position="static" color="primary">
+      <Container>
         <Toolbar disableGutters>
-          {/* Mobile menu button */}
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-
-          {/* Logo */}
+          {/* Logo and brand */}
+          <FlightTakeoffIcon sx={{ mr: 1 }} />
           <Typography
             variant="h6"
-            noWrap
             component={RouterLink}
             to="/"
             sx={{
               mr: 2,
-              display: { xs: 'none', md: 'flex' },
               fontWeight: 700,
               color: 'inherit',
               textDecoration: 'none',
-            }}
-          >
-            ITINERA
-          </Typography>
-
-          {/* Mobile logo */}
-          <Typography
-            variant="h6"
-            noWrap
-            component={RouterLink}
-            to="/"
-            sx={{
               flexGrow: 1,
-              display: { xs: 'flex', md: 'none' },
-              fontWeight: 700,
-              color: 'inherit',
-              textDecoration: 'none',
             }}
           >
-            ITINERA
+            Itinera
           </Typography>
-
-          {/* Desktop navigation links */}
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-            {navItems.map((item) => (
-              (item.public || user) && (
-                <Button
-                  key={item.title}
-                  component={RouterLink}
-                  to={item.path}
-                  sx={{ my: 2, color: 'white', display: 'block' }}
-                >
-                  {item.title}
-                </Button>
-              )
-            ))}
-          </Box>
-
-          {/* User menu */}
-          <Box sx={{ flexGrow: 0 }}>
-            {user ? (
-              <>
-                <Tooltip title="Open settings">
-                  <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                    <Avatar
-                      alt={user.name || 'User'}
-                      src={user.photoURL || ''}
-                    />
-                  </IconButton>
-                </Tooltip>
-                <Menu
-                  sx={{ mt: '45px' }}
-                  id="menu-appbar"
-                  anchorEl={anchorElUser}
-                  anchorOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  keepMounted
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  open={Boolean(anchorElUser)}
-                  onClose={handleCloseUserMenu}
-                >
-                  <MenuItem
+          
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {navLinks.map((link) => (
+                  <Button
+                    key={link.title}
+                    color="inherit"
                     component={RouterLink}
-                    to="/profile"
-                    onClick={handleCloseUserMenu}
+                    to={link.path}
+                    sx={{ mx: 1 }}
                   >
-                    <Typography textAlign="center">Profile</Typography>
-                  </MenuItem>
-                  <MenuItem
-                    component={RouterLink}
-                    to="/dashboard"
-                    onClick={handleCloseUserMenu}
-                  >
-                    <Typography textAlign="center">Dashboard</Typography>
-                  </MenuItem>
-                  <MenuItem onClick={handleLogout}>
-                    <Typography textAlign="center">Logout</Typography>
-                  </MenuItem>
-                </Menu>
-              </>
-            ) : (
-              <Button
-                component={RouterLink}
-                to="/login"
+                    {link.title}
+                  </Button>
+                ))}
+                
+                {isAuthenticated ? (
+                  <>
+                    <Button
+                      color="inherit"
+                      component={RouterLink}
+                      to="/dashboard"
+                      sx={{ mx: 1 }}
+                    >
+                      Dashboard
+                    </Button>
+                    <Button
+                      color="inherit"
+                      component={RouterLink}
+                      to="/planner"
+                      sx={{ mx: 1 }}
+                    >
+                      Plan Trip
+                    </Button>
+                    <IconButton
+                      onClick={handleMenu}
+                      color="inherit"
+                      sx={{ ml: 1 }}
+                    >
+                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                        {user?.name?.charAt(0) || <AccountCircleIcon />}
+                      </Avatar>
+                    </IconButton>
+                    <Menu
+                      id="menu-appbar"
+                      anchorEl={anchorEl}
+                      anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                      }}
+                      keepMounted
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                      }}
+                      open={open}
+                      onClose={handleClose}
+                    >
+                      <MenuItem 
+                        onClick={() => {
+                          handleClose();
+                          navigate('/profile');
+                        }}
+                      >
+                        Profile
+                      </MenuItem>
+                      <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                    </Menu>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      color="inherit"
+                      component={RouterLink}
+                      to="/login"
+                      sx={{ mx: 1 }}
+                    >
+                      Login
+                    </Button>
+                    <Button
+                      color="secondary"
+                      variant="contained"
+                      component={RouterLink}
+                      to="/register"
+                      sx={{ ml: 1 }}
+                    >
+                      Register
+                    </Button>
+                  </>
+                )}
+              </Box>
+            </>
+          )}
+          
+          {/* Mobile Navigation */}
+          {isMobile && (
+            <>
+              <IconButton
                 color="inherit"
+                aria-label="open drawer"
+                edge="end"
+                onClick={handleDrawerToggle}
               >
-                Login
-              </Button>
-            )}
-          </Box>
+                <MenuIcon />
+              </IconButton>
+              <Drawer
+                anchor="right"
+                open={drawerOpen}
+                onClose={handleDrawerToggle}
+              >
+                {drawer}
+              </Drawer>
+            </>
+          )}
         </Toolbar>
       </Container>
-      
-      {/* Mobile drawer */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Better open performance on mobile
-        }}
-        sx={{
-          display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 },
-        }}
-      >
-        {drawer}
-      </Drawer>
     </AppBar>
   );
 };

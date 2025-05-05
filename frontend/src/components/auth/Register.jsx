@@ -1,183 +1,135 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
 import {
-  Container,
   Box,
+  Container,
   Typography,
   TextField,
   Button,
   Grid,
+  Link,
   Paper,
-  Divider,
   Alert,
+  CircularProgress,
 } from '@mui/material';
-import { Google as GoogleIcon } from '@mui/icons-material';
-
-// Hooks and actions
-import { useAuth } from '../../hooks/useAuth';
-import { register, loginWithGoogle } from '../../redux/actions/authActions';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { register } from '../../redux/actions/authActions';
 
 const Register = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
   });
-  const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const { registerWithEmail, loginWithGoogle: authLoginWithGoogle } = useAuth();
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  const { name, email, password, confirmPassword } = formData;
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    // Validate form
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
     setLoading(true);
 
-    try {
-      await registerWithEmail(email, password, name);
-      dispatch(register({ name, email, password }));
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Failed to register');
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setError('');
-    setLoading(true);
+    const { name, email, password } = formData;
 
     try {
-      const user = await authLoginWithGoogle();
-      dispatch(loginWithGoogle(user));
+      await dispatch(register(name, email, password));
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Failed to log in with Google');
+      console.error('Register error:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.message || 'Registration failed');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box my={4}>
-        <Paper elevation={3}>
-          <Box p={4}>
-            <Typography variant="h4" align="center" gutterBottom>
-              Create an Account
-            </Typography>
-            
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-            
-            <form onSubmit={handleRegister}>
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                id="name"
-                label="Full Name"
-                name="name"
-                autoComplete="name"
-                autoFocus
-                value={name}
-                onChange={handleChange}
-              />
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                value={email}
-                onChange={handleChange}
-              />
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                type="password"
-                id="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={handleChange}
-                helperText="Password must be at least 6 characters"
-              />
-              <TextField
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                name="confirmPassword"
-                label="Confirm Password"
-                type="password"
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={handleChange}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                sx={{ mt: 3, mb: 2 }}
-                disabled={loading}
-              >
-                Sign Up
-              </Button>
-            </form>
-            
-            <Divider sx={{ my: 2 }}>OR</Divider>
-            
-            <Button
-              fullWidth
-              variant="outlined"
-              color="primary"
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleLogin}
-              disabled={loading}
-            >
-              Sign Up with Google
-            </Button>
-            
-            <Grid container justifyContent="center" sx={{ mt: 3 }}>
-              <Grid item>
-                <Link to="/login" style={{ textDecoration: 'none' }}>
-                  <Typography color="primary">
-                    Already have an account? Log In
-                  </Typography>
+    <Container maxWidth="sm" sx={{ py: 8 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Create Account
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Join Itinera and start planning your next adventure
+          </Typography>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="name"
+            label="Full Name"
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            autoFocus
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            autoComplete="email"
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Password"
+            type="password"
+            id="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            autoComplete="new-password"
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2, py: 1.5 }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Register'}
+          </Button>
+
+          <Grid container justifyContent="center">
+            <Grid item>
+              <Typography variant="body2">
+                Already have an account?{' '}
+                <Link component={RouterLink} to="/login" variant="body2">
+                  Sign in
                 </Link>
-              </Grid>
+              </Typography>
             </Grid>
-          </Box>
-        </Paper>
-      </Box>
+          </Grid>
+        </Box>
+      </Paper>
     </Container>
   );
 };

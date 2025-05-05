@@ -1,351 +1,415 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
-  Box, Button, Container, Typography, TextField, Paper,
-  Stepper, Step, StepLabel, Grid, IconButton, Alert
+  Box, 
+  TextField, 
+  Button, 
+  Typography, 
+  Grid, 
+  Paper,
+  Card,
+  CardContent,
+  Divider,
+  IconButton,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useItinerary } from '../../hooks/useItinerary';
-import { useAuth } from '../../hooks/useAuth';
-import ActivityCard from './ActivityCard';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import EventIcon from '@mui/icons-material/Event';
+import DescriptionIcon from '@mui/icons-material/Description';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import itineraryService from '../../services/itineraryService';
 
-const steps = ['Basic Info', 'Destinations', 'Activities', 'Review'];
+const ItineraryBuilder = ({ onNext, onActivityAdded, initialActivities = [], editMode = false }) => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [time, setTime] = useState('');
+  const [day, setDay] = useState('');
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Activity added successfully!');
+  const [editingActivity, setEditingActivity] = useState(null);
 
-const ItineraryBuilder = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { createItinerary, error, loading } = useItinerary();
-  const [activeStep, setActiveStep] = useState(0);
-  const [itinerary, setItinerary] = useState({
-    title: '',
-    description: '',
-    startDate: '',
-    endDate: '',
-    destinations: [''],
-    activities: []
-  });
-  const [validationErrors, setValidationErrors] = useState({});
+  const user = useSelector((state) => state.auth.user);
 
-  const handleNext = () => {
-    // Validation for each step
-    if (activeStep === 0) {
-      const errors = {};
-      if (!itinerary.title) errors.title = 'Title is required';
-      if (!itinerary.startDate) errors.startDate = 'Start date is required';
-      if (!itinerary.endDate) errors.endDate = 'End date is required';
+  // Initialize with activities if provided - only on first render
+  useEffect(() => {
+    if (initialActivities && initialActivities.length > 0) {
+      console.log('Initializing with activities:', initialActivities);
+      setActivities(initialActivities);
       
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors(errors);
-        return;
-      }
-    } else if (activeStep === 1) {
-      const errors = {};
-      if (itinerary.destinations.length === 0 || 
-          itinerary.destinations.some(dest => !dest)) {
-        errors.destinations = 'At least one valid destination is required';
-        setValidationErrors(errors);
-        return;
+      // If in edit mode and there's exactly one activity, populate the form with it
+      if (editMode && initialActivities.length === 1) {
+        const activity = initialActivities[0];
+        setTitle(activity.title || '');
+        setDescription(activity.description || '');
+        setTime(activity.time || '');
+        setDay(activity.day?.toString() || '');
+        setEditingActivity(activity);
+        setSuccessMessage('Activity updated successfully!');
       }
     }
+  }, []); // Empty dependency array - only run on mount
+
+  // Notify parent component when activities change - but prevent the circular dependency
+  useEffect(() => {
+    // Skip the initial render or when activities are set from initialActivities
+    const isInitialRender = JSON.stringify(activities) === JSON.stringify(initialActivities);
     
-    setValidationErrors({});
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-  };
+    if (typeof onActivityAdded === 'function' && !isInitialRender) {
+      onActivityAdded(activities);
+    }
+  }, [activities]); // Removed onActivityAdded from dependency array
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  const handleAddActivity = async () => {
+    // Validation
+    if (!title || !time || !day) {
+      setError('Please fill in all required fields');
+      return;
+    }
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setItinerary({ ...itinerary, [name]: value });
-  };
+    if (!user || !user._id) {
+      setError('You must be logged in to add activities');
+      return;
+    }
 
-  const handleDestinationChange = (index, value) => {
-    const newDestinations = [...itinerary.destinations];
-    newDestinations[index] = value;
-    setItinerary({ ...itinerary, destinations: newDestinations });
-  };
+    const activityData = {
+      title,
+      description,
+      time,
+      day: parseInt(day),
+    };
 
-  const addDestination = () => {
-    setItinerary({
-      ...itinerary,
-      destinations: [...itinerary.destinations, '']
-    });
-  };
+    setLoading(true);
+    setError('');
 
-  const removeDestination = (index) => {
-    const newDestinations = [...itinerary.destinations];
-    newDestinations.splice(index, 1);
-    setItinerary({ ...itinerary, destinations: newDestinations });
-  };
-
-  const addActivity = (activity) => {
-    setItinerary({
-      ...itinerary,
-      activities: [...itinerary.activities, { ...activity, id: Date.now() }]
-    });
-  };
-
-  const removeActivity = (activityId) => {
-    setItinerary({
-      ...itinerary,
-      activities: itinerary.activities.filter(activity => activity.id !== activityId)
-    });
-  };
-
-  const handleSubmit = async () => {
     try {
-      await createItinerary({ ...itinerary, userId: user.id });
-      navigate('/dashboard');
+      if (editingActivity) {
+        // Update existing activity
+        const updatedActivity = await itineraryService.updateActivity(
+          user._id, 
+          editingActivity._id, 
+          activityData
+        );
+        
+        // Replace the activity in the list
+        setActivities(activities.map(activity => 
+          activity._id === editingActivity._id ? updatedActivity : activity
+        ));
+        
+        // Reset editing state
+        setEditingActivity(null);
+      } else {
+        // Create new activity
+        const savedActivity = await itineraryService.createActivity(user._id, activityData);
+        setActivities([...activities, savedActivity]);
+      }
+      
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setTime('');
+      setDay('');
+      
+      // Show success message
+      setSuccess(true);
     } catch (err) {
-      console.error('Failed to create itinerary:', err);
+      console.error('Error saving activity:', err);
+      setError('Failed to save activity. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStepContent = (step) => {
-    switch (step) {
-      case 0:
-        return (
-          <Box sx={{ my: 3 }}>
+  const handleEditActivity = (activity) => {
+    // Set form fields to the activity values
+    setTitle(activity.title || '');
+    setDescription(activity.description || '');
+    setTime(activity.time || '');
+    setDay(activity.day?.toString() || '');
+    setEditingActivity(activity);
+    setSuccessMessage('Activity updated successfully!');
+    
+    // Scroll to the form
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form
+    setTitle('');
+    setDescription('');
+    setTime('');
+    setDay('');
+    setEditingActivity(null);
+    setSuccessMessage('Activity added successfully!');
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    try {
+      // In a complete implementation, this would call an API endpoint
+      await itineraryService.deleteActivity(user._id, activityId);
+      
+      // Remove from local state
+      setActivities(activities.filter(activity => 
+        activity._id !== activityId
+      ));
+      
+      // If the deleted activity is the one being edited, reset the form
+      if (editingActivity && editingActivity._id === activityId) {
+        handleCancelEdit();
+      }
+    } catch (err) {
+      console.error('Error deleting activity:', err);
+      setError('Failed to delete activity. Please try again.');
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSuccess(false);
+  };
+
+  // Sort activities by day
+  const sortedActivities = [...activities].sort((a, b) => a.day - b.day);
+
+  return (
+    <Box sx={{ width: '100%', mt: 2 }}>
+      <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+        <Typography variant="h5" gutterBottom color="primary">
+          {editingActivity ? 'Edit Activity' : 'Create Your Travel Itinerary'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" paragraph>
+          {editingActivity 
+            ? 'Update the details of your activity below.'
+            : 'Add activities to your travel itinerary below. You\'ll need at least one activity to proceed.'
+          }
+        </Typography>
+        
+        {/* Activity Form */}
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
-              margin="normal"
-              label="Title"
-              name="title"
-              value={itinerary.title}
-              onChange={handleInputChange}
-              error={!!validationErrors.title}
-              helperText={validationErrors.title}
-            />
-            <TextField
-              fullWidth
-              margin="normal"
-              label="Description"
-              name="description"
-              multiline
-              rows={3}
-              value={itinerary.description}
-              onChange={handleInputChange}
-            />
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  label="Start Date"
-                  name="startDate"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={itinerary.startDate}
-                  onChange={handleInputChange}
-                  error={!!validationErrors.startDate}
-                  helperText={validationErrors.startDate}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  label="End Date"
-                  name="endDate"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={itinerary.endDate}
-                  onChange={handleInputChange}
-                  error={!!validationErrors.endDate}
-                  helperText={validationErrors.endDate}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        );
-      case 1:
-        return (
-          <Box sx={{ my: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Where are you going?
-            </Typography>
-            {validationErrors.destinations && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {validationErrors.destinations}
-              </Alert>
-            )}
-            {itinerary.destinations.map((destination, index) => (
-              <Box key={index} sx={{ display: 'flex', mb: 2 }}>
-                <TextField
-                  fullWidth
-                  label={`Destination ${index + 1}`}
-                  value={destination}
-                  onChange={(e) => handleDestinationChange(index, e.target.value)}
-                />
-                {itinerary.destinations.length > 1 && (
-                  <IconButton onClick={() => removeDestination(index)}>
-                    <DeleteIcon />
-                  </IconButton>
-                )}
-              </Box>
-            ))}
-            <Button
-              startIcon={<AddIcon />}
-              onClick={addDestination}
+              label="Activity Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Visit Eiffel Tower"
+              required
               variant="outlined"
-              sx={{ mt: 1 }}
-            >
-              Add Destination
-            </Button>
-          </Box>
-        );
-      case 2:
-        return (
-          <Box sx={{ my: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Plan Your Activities
-            </Typography>
-            {/* Activity form would go here, using ActivityCard component */}
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="subtitle1">Add New Activity</Typography>
-              {/* Simplified activity form - this would be expanded */}
-              <TextField 
-                fullWidth
-                margin="normal"
-                label="Activity Name"
-                id="new-activity-name"
-              />
-              <TextField
-                fullWidth
-                margin="normal"
-                label="Location"
-                id="new-activity-location"
-              />
+              size="small"
+              InputProps={{
+                startAdornment: <LocationOnIcon color="action" sx={{ mr: 1 }} />,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              label="Time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              placeholder="e.g., 10:00 AM"
+              required
+              variant="outlined"
+              size="small"
+              InputProps={{
+                startAdornment: <AccessTimeIcon color="action" sx={{ mr: 1 }} />,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              label="Day"
+              type="number"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              placeholder="e.g., 1"
+              required
+              variant="outlined"
+              size="small"
+              InputProps={{
+                startAdornment: <EventIcon color="action" sx={{ mr: 1 }} />,
+                inputProps: { min: 1 }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            {editingActivity ? (
+              <Box sx={{ display: 'flex', gap: 1, height: '100%' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleAddActivity}
+                  disabled={loading}
+                  sx={{ flexGrow: 1 }}
+                >
+                  {loading ? 'Saving...' : 'Update'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleCancelEdit}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            ) : (
               <Button
                 variant="contained"
-                sx={{ mt: 2 }}
-                onClick={() => addActivity({
-                  name: document.getElementById('new-activity-name').value,
-                  location: document.getElementById('new-activity-location').value,
-                  date: new Date().toISOString().split('T')[0]
-                })}
+                color="primary"
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
+                onClick={handleAddActivity}
+                disabled={loading}
+                fullWidth
+                sx={{ height: '100%' }}
               >
                 Add Activity
               </Button>
-            </Paper>
-            
-            <Typography variant="subtitle1" sx={{ mt: 3, mb: 2 }}>
-              Planned Activities
-            </Typography>
-            {itinerary.activities.length === 0 ? (
-              <Typography variant="body2" color="textSecondary">
-                No activities added yet
-              </Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {itinerary.activities.map((activity) => (
-                  <Grid item xs={12} sm={6} md={4} key={activity.id}>
-                    <ActivityCard
-                      activity={activity}
-                      onDelete={() => removeActivity(activity.id)}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
             )}
-          </Box>
-        );
-      case 3:
-        return (
-          <Box sx={{ my: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Review Your Itinerary
-            </Typography>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h5">{itinerary.title}</Typography>
-              <Typography variant="subtitle1" color="textSecondary">
-                {itinerary.startDate} to {itinerary.endDate}
-              </Typography>
-              <Typography variant="body1" paragraph sx={{ mt: 2 }}>
-                {itinerary.description || 'No description provided.'}
-              </Typography>
-              
-              <Typography variant="h6" sx={{ mt: 3 }}>Destinations</Typography>
-              <ul>
-                {itinerary.destinations.map((destination, index) => (
-                  <li key={index}>{destination}</li>
-                ))}
-              </ul>
-              
-              <Typography variant="h6" sx={{ mt: 3 }}>Activities</Typography>
-              {itinerary.activities.length === 0 ? (
-                <Typography variant="body2" color="textSecondary">
-                  No activities planned yet
-                </Typography>
-              ) : (
-                <ul>
-                  {itinerary.activities.map((activity) => (
-                    <li key={activity.id}>
-                      {activity.name} - {activity.location}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Paper>
-          </Box>
-        );
-      default:
-        return 'Unknown step';
-    }
-  };
-
-  return (
-    <Container maxWidth="md">
-      <Paper sx={{ p: 4, my: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          Create New Itinerary
-        </Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your activity..."
+              multiline
+              rows={2}
+              variant="outlined"
+              size="small"
+              InputProps={{
+                startAdornment: <DescriptionIcon color="action" sx={{ mr: 1, mt: 1 }} />,
+              }}
+            />
+          </Grid>
+        </Grid>
         
-        <Stepper activeStep={activeStep} sx={{ pt: 3, pb: 5 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-        
-        {getStepContent(activeStep)}
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
-          <Box>
-            {activeStep === steps.length - 1 ? (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : 'Create Itinerary'}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleNext}
-              >
-                Next
-              </Button>
-            )}
-          </Box>
-        </Box>
+        {/* Error Message */}
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
       </Paper>
-    </Container>
+      
+      {/* Activities List */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Planned Activities ({activities.length})
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        
+        {activities.length === 0 ? (
+          <Paper elevation={1} sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper' }}>
+            <Typography variant="body1" color="text.secondary">
+              No activities added yet. Start building your itinerary above.
+            </Typography>
+          </Paper>
+        ) : (
+          <Grid container spacing={2}>
+            {sortedActivities.map((activity) => (
+              <Grid item xs={12} sm={6} md={4} key={activity._id || `${activity.title}-${activity.time}`}>
+                <Card 
+                  elevation={2}
+                  sx={{ 
+                    height: '100%',
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-5px)',
+                      boxShadow: 4
+                    },
+                    position: 'relative'
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Typography variant="h6" component="div" gutterBottom>
+                        {activity.title}
+                      </Typography>
+                      <Box>
+                        <IconButton 
+                          size="small" 
+                          color="primary"
+                          onClick={() => handleEditActivity(activity)}
+                          sx={{ mr: 0.5 }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          onClick={() => handleDeleteActivity(activity._id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <EventIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Day {activity.day}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <AccessTimeIcon fontSize="small" sx={{ mr: 1, color: 'primary.main' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {activity.time}
+                      </Typography>
+                    </Box>
+                    {activity.description && (
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        {activity.description}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Box>
+
+      {/* Next Button */}
+      {typeof onNext === 'function' && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onNext}
+            disabled={activities.length === 0}
+            sx={{ px: 4 }}
+          >
+            Next
+          </Button>
+        </Box>
+      )}
+      
+      {/* Success Message */}
+      <Snackbar
+        open={success}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity="success">
+          {successMessage}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

@@ -1,259 +1,430 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React from 'react';
 import { 
-  Box, Container, Typography, Paper, Grid, Divider, 
-  Tabs, Tab, Button, CircularProgress, Alert 
+  Box, 
+  Typography, 
+  Paper, 
+  Divider, 
+  Chip,
+  Grid,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Card,
+  CardHeader,
+  CardContent,
+  Avatar
 } from '@mui/material';
-import ShareIcon from '@mui/icons-material/Share';
-import EditIcon from '@mui/icons-material/Edit';
-import DownloadIcon from '@mui/icons-material/Download';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import { useItinerary } from '../../hooks/useItinerary';
-import { useAuth } from '../../hooks/useAuth';
-import ActivityCard from './ActivityCard';
+import EventIcon from '@mui/icons-material/Event';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import DirectionsTransitIcon from '@mui/icons-material/DirectionsTransit';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import HotelIcon from '@mui/icons-material/Hotel';
+import SpeedIcon from '@mui/icons-material/Speed';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import StyleIcon from '@mui/icons-material/Style';
+import LocalActivityIcon from '@mui/icons-material/LocalActivity';
+import AccessibleIcon from '@mui/icons-material/Accessible';
+import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
+import PeopleIcon from '@mui/icons-material/People';
+import NatureIcon from '@mui/icons-material/Nature';
 
-const TabPanel = (props) => {
-  const { children, value, index, ...other } = props;
+const ItineraryView = ({ itineraryData }) => {
+  const { activities = [], preferences = {} } = itineraryData || {};
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`itinerary-tabpanel-${index}`}
-      aria-labelledby={`itinerary-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
-};
+  // Group activities by day
+  const groupActivitiesByDay = () => {
+    const grouped = {};
+    
+    if (Array.isArray(activities)) {
+      activities.forEach(activity => {
+        const day = activity.day || 1;
+        if (!grouped[day]) {
+          grouped[day] = [];
+        }
+        grouped[day].push(activity);
+      });
+    }
+    
+    return grouped;
+  };
 
-const ItineraryView = () => {
-  const { id } = useParams();
-  const { user } = useAuth();
-  const { getItinerary, favoriteItinerary, error, loading } = useItinerary();
-  const [itinerary, setItinerary] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const groupedActivities = groupActivitiesByDay();
+  const days = Object.keys(groupedActivities).sort((a, b) => a - b);
 
-  useEffect(() => {
-    const fetchItinerary = async () => {
-      try {
-        const data = await getItinerary(id);
-        setItinerary(data);
-        setIsFavorite(data.favorites?.includes(user?.id));
-      } catch (err) {
-        console.error('Failed to fetch itinerary:', err);
-      }
+  // Preference display helpers
+  const formatTravelStyle = (style) => {
+    const styleMap = {
+      'adventurous': 'Adventurous',
+      'relaxed': 'Relaxed',
+      'cultural': 'Cultural',
+      'luxury': 'Luxury',
+      'balanced': 'Balanced'
     };
+    return styleMap[style] || style;
+  };
 
-    if (id) {
-      fetchItinerary();
+  const formatBudget = (budget) => {
+    const budgetMap = {
+      'budget': 'Budget-friendly',
+      'medium': 'Medium',
+      'luxury': 'Luxury'
+    };
+    return budgetMap[budget] || budget;
+  };
+
+  const formatFoodPreference = (pref) => {
+    const prefMap = {
+      'local': 'Local Cuisine',
+      'international': 'International Cuisine',
+      'vegetarian': 'Vegetarian',
+      'vegan': 'Vegan',
+      'no_preference': 'No Specific Preference'
+    };
+    return prefMap[pref] || pref;
+  };
+
+  const formatAccommodationType = (type) => {
+    const typeMap = {
+      'hotel': 'Hotels',
+      'hostel': 'Hostels',
+      'apartment': 'Apartments/Rentals',
+      'resort': 'Resorts',
+      'camping': 'Camping/Outdoor'
+    };
+    return typeMap[type] || type;
+  };
+
+  const getTransportationString = (transportPrefs) => {
+    if (!transportPrefs || typeof transportPrefs !== 'object') {
+      return 'Not specified';
     }
-  }, [id, getItinerary, user]);
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    
+    const options = [];
+    if (transportPrefs.publicTransport) options.push('Public Transport');
+    if (transportPrefs.car) options.push('Car/Taxi');
+    if (transportPrefs.walking) options.push('Walking');
+    if (transportPrefs.cycling) options.push('Cycling');
+    
+    return options.length > 0 ? options.join(', ') : 'Not specified';
   };
 
-  const handleFavorite = async () => {
-    try {
-      await favoriteItinerary(id);
-      setIsFavorite(!isFavorite);
-    } catch (err) {
-      console.error('Failed to favorite itinerary:', err);
+  const formatBoolean = (value) => value ? 'Yes' : 'No';
+
+  // Render the interests in a more compact way
+  const renderInterests = (interests) => {
+    if (!interests || !Array.isArray(interests) || interests.length === 0) {
+      return <Typography variant="body2" color="text.secondary">None selected</Typography>;
     }
-  };
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    // Would normally trigger a snackbar/notification here
-    alert('Link copied to clipboard!');
-  };
-
-  if (loading) {
+    
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        {interests.map((interest, index) => (
+          <Chip 
+            key={index} 
+            label={interest} 
+            size="small" 
+            variant="outlined" 
+            color="primary"
+            sx={{ m: 0.5 }}
+          />
+        ))}
       </Box>
     );
-  }
-
-  if (error) {
-    return (
-      <Container>
-        <Alert severity="error" sx={{ mt: 4 }}>
-          {error}
-        </Alert>
-      </Container>
-    );
-  }
-
-  if (!itinerary) {
-    return (
-      <Container>
-        <Alert severity="info" sx={{ mt: 4 }}>
-          Itinerary not found
-        </Alert>
-      </Container>
-    );
-  }
-
-  const isOwner = user?.id === itinerary.userId;
+  };
 
   return (
-    <Container maxWidth="lg">
-      <Paper sx={{ p: { xs: 2, md: 4 }, mt: 4, mb: 2 }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' }
-        }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            {itinerary.title}
-          </Typography>
-          
-          <Box sx={{ display: 'flex', mt: { xs: 2, sm: 0 } }}>
-            <Button 
-              startIcon={isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-              onClick={handleFavorite}
-              sx={{ mr: 1 }}
-            >
-              {isFavorite ? 'Favorited' : 'Favorite'}
-            </Button>
-            <Button startIcon={<ShareIcon />} onClick={handleShare} sx={{ mr: 1 }}>
-              Share
-            </Button>
-            {isOwner && (
-              <Button startIcon={<EditIcon />} href={`/itinerary/edit/${id}`}>
-                Edit
-              </Button>
-            )}
-          </Box>
-        </Box>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <TravelExploreIcon sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
+        <Typography variant="h4">Your Itinerary</Typography>
+      </Box>
 
-        <Typography variant="subtitle1" color="textSecondary" gutterBottom>
-          {new Date(itinerary.startDate).toLocaleDateString()} - {new Date(itinerary.endDate).toLocaleDateString()}
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
-        <Typography variant="body1" paragraph>
-          {itinerary.description || 'No description provided.'}
-        </Typography>
-
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 4 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="itinerary tabs">
-            <Tab label="Overview" id="itinerary-tab-0" />
-            <Tab label="Activities" id="itinerary-tab-1" />
-            <Tab label="Map" id="itinerary-tab-2" />
-          </Tabs>
-        </Box>
-
-        <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Destinations
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <ul style={{ paddingLeft: '20px', marginTop: 0 }}>
-                  {itinerary.destinations.map((destination, index) => (
-                    <li key={index}>
-                      <Typography variant="body1">{destination}</Typography>
-                    </li>
-                  ))}
-                </ul>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Trip Details
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="body2">
-                  <strong>Duration:</strong> {
-                    Math.ceil((new Date(itinerary.endDate) - new Date(itinerary.startDate)) / (1000 * 60 * 60 * 24))
-                  } days
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  <strong>Activities:</strong> {itinerary.activities?.length || 0}
-                </Typography>
-                {/* Additional itinerary details would go here */}
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* Preview of activities */}
-          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-            Highlighted Activities
-          </Typography>
-          <Grid container spacing={2}>
-            {itinerary.activities?.slice(0, 3).map((activity) => (
-              <Grid item xs={12} sm={6} md={4} key={activity.id}>
-                <ActivityCard activity={activity} viewOnly />
-              </Grid>
-            ))}
-            {(itinerary.activities?.length === 0) && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="textSecondary">
-                  No activities planned yet
-                </Typography>
-              </Grid>
-            )}
-          </Grid>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          <Typography variant="h6" gutterBottom>
-            All Activities
-          </Typography>
-
-          <Grid container spacing={2}>
-            {itinerary.activities?.map((activity) => (
-              <Grid item xs={12} sm={6} md={4} key={activity.id}>
-                <ActivityCard activity={activity} viewOnly />
-              </Grid>
-            ))}
-            {(itinerary.activities?.length === 0) && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="textSecondary">
-                  No activities planned yet
-                </Typography>
-              </Grid>
-            )}
-          </Grid>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={2}>
-          <Typography variant="h6" gutterBottom>
-            Trip Map
-          </Typography>
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              height: 400, 
-              width: '100%', 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center' 
-            }}
-          >
-            <Typography color="textSecondary">
-              Map view will be implemented here
+      <Grid container spacing={3}>
+        {/* Left Column - Trip Overview and Schedule */}
+        <Grid item xs={12} md={7}>
+          <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+            <Typography variant="h5" color="primary" gutterBottom>
+              Trip Overview
+            </Typography>
+            <Typography variant="body1">
+              Your itinerary spans {days.length} {days.length === 1 ? 'day' : 'days'} with {activities.length} {activities.length === 1 ? 'activity' : 'activities'}.
             </Typography>
           </Paper>
-        </TabPanel>
-      </Paper>
-
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 4 }}>
-        <Button startIcon={<DownloadIcon />} variant="outlined">
-          Export Itinerary
-        </Button>
-      </Box>
-    </Container>
+          
+          <Typography variant="h5" gutterBottom>
+            Daily Schedule
+          </Typography>
+          
+          {days.length === 0 ? (
+            <Paper elevation={1} sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1">No activities added to your itinerary yet.</Typography>
+            </Paper>
+          ) : (
+            <>
+              {days.map(day => (
+                <Paper key={day} elevation={2} sx={{ mb: 3, overflow: 'hidden', borderRadius: 2 }}>
+                  <Box 
+                    sx={{ 
+                      bgcolor: 'primary.main', 
+                      color: 'primary.contrastText', 
+                      py: 1.5, 
+                      px: 3 
+                    }}
+                  >
+                    <Typography variant="h6">Day {day}</Typography>
+                  </Box>
+                  
+                  <List sx={{ py: 0 }}>
+                    {groupedActivities[day]
+                      .sort((a, b) => {
+                        // Safely handle time strings
+                        if (!a.time || !b.time) return 0;
+                        
+                        try {
+                          // Convert time strings to comparable values
+                          const aHour = parseInt(a.time.split(':')[0]) || 0;
+                          const bHour = parseInt(b.time.split(':')[0]) || 0;
+                          
+                          // Check if AM/PM
+                          const aIsPM = a.time.includes('PM') && !a.time.includes('12:');
+                          const bIsPM = b.time.includes('PM') && !b.time.includes('12:');
+                          
+                          // Convert to 24-hour format for comparison
+                          const aHour24 = aIsPM ? aHour + 12 : aHour;
+                          const bHour24 = bIsPM ? bHour + 12 : bHour;
+                          
+                          return aHour24 - bHour24;
+                        } catch (error) {
+                          return 0;
+                        }
+                      })
+                      .map((activity, index) => (
+                        <React.Fragment key={activity._id || index}>
+                          <ListItem sx={{ py: 2 }}>
+                            <ListItemIcon>
+                              <AccessTimeIcon color="primary" />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Typography variant="subtitle1">{activity.title}</Typography>
+                              }
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {activity.time || 'Time not specified'}
+                                  </Typography>
+                                  {activity.description && (
+                                    <Typography variant="body2" sx={{ mt: 1 }}>
+                                      {activity.description}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                          {index < groupedActivities[day].length - 1 && (
+                            <Divider variant="inset" component="li" />
+                          )}
+                        </React.Fragment>
+                      ))}
+                  </List>
+                </Paper>
+              ))}
+            </>
+          )}
+        </Grid>
+        
+        {/* Right Column - Preferences and Activity Summary */}
+        <Grid item xs={12} md={5}>
+          {/* Preferences Section */}
+          <Typography variant="h5" gutterBottom>
+            Your Preferences
+          </Typography>
+          
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {/* Travel Style & Budget */}
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <StyleIcon />
+                    </Avatar>
+                  }
+                  title="Travel Style"
+                  subheader={formatTravelStyle(preferences.travelStyle)}
+                />
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <AccountBalanceWalletIcon />
+                    </Avatar>
+                  }
+                  title="Budget"
+                  subheader={formatBudget(preferences.budget)}
+                />
+              </Card>
+            </Grid>
+            
+            {/* Pace & Food */}
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <SpeedIcon />
+                    </Avatar>
+                  }
+                  title="Pace"
+                  subheader={preferences.pace ? `${preferences.pace}/5` : 'Not specified'}
+                />
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <RestaurantIcon />
+                    </Avatar>
+                  }
+                  title="Food Preference"
+                  subheader={formatFoodPreference(preferences.foodPreference)}
+                />
+              </Card>
+            </Grid>
+            
+            {/* Accommodation & Transportation */}
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <HotelIcon />
+                    </Avatar>
+                  }
+                  title="Accommodation Type"
+                  subheader={formatAccommodationType(preferences.accommodationType)}
+                />
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={12} lg={6}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <DirectionsTransitIcon />
+                    </Avatar>
+                  }
+                  title="Transportation"
+                  subheader={getTransportationString(preferences.transportationPreference)}
+                />
+              </Card>
+            </Grid>
+            
+            {/* Interests */}
+            <Grid item xs={12}>
+              <Card variant="outlined">
+                <CardHeader
+                  avatar={
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <LocalActivityIcon />
+                    </Avatar>
+                  }
+                  title="Interests"
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  {renderInterests(preferences.interests)}
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            {/* Additional Preferences */}
+            <Grid item xs={12}>
+              <Card variant="outlined">
+                <CardHeader
+                  title="Additional Preferences"
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  <Grid container spacing={1}>
+                    <Grid item xs={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <AccessibleIcon sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                        <Typography variant="body2">
+                          Accessibility: {formatBoolean(preferences.accessibility)}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <FamilyRestroomIcon sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                        <Typography variant="body2">
+                          Child Friendly: {formatBoolean(preferences.childFriendly)}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <PeopleIcon sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                        <Typography variant="body2">
+                          Avoid Crowds: {formatBoolean(preferences.avoidCrowds)}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <NatureIcon sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                        <Typography variant="body2">
+                          Sustainability: {formatBoolean(preferences.prioritizeSustainability)}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+          
+          {/* Activity Summary */}
+          <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Activity Summary
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormatListBulletedIcon color="primary" sx={{ mr: 1 }} />
+                  <Box>
+                    <Typography variant="subtitle2">Total Activities</Typography>
+                    <Typography variant="h6">{activities.length}</Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <EventIcon color="primary" sx={{ mr: 1 }} />
+                  <Box>
+                    <Typography variant="subtitle2">Trip Duration</Typography>
+                    <Typography variant="h6">{days.length} days</Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 

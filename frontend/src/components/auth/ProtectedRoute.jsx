@@ -1,19 +1,28 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import Loading from '../common/Loading';
+import { Navigate } from 'react-router-dom';
+import { CircularProgress, Box } from '@mui/material';
+import { useSelector } from 'react-redux';
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  const location = useLocation();
+  const { isAuthenticated, loading } = useSelector(state => state.auth || {});
 
   if (loading) {
-    return <Loading />;
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  if (!user) {
-    // Redirect to login page but save the location the user was trying to access
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
   }
 
   return children;

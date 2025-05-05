@@ -1,50 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getItineraries,
-  getItinerary,
-  createItinerary,
-  updateItinerary,
-  deleteItinerary,
-  addActivity,
-  updateActivity,
-  removeActivity,
-  addCollaborator,
-  removeCollaborator,
-  generateRecommendations
-} = require('../controllers/itineraryController');
-const { protect } = require('../middleware/auth');
-const { itineraryValidation, validateRequest } = require('../utils/validators');
+const itineraryController = require('../controllers/itineraryController');
 
-// Protect all routes
-router.use(protect);
+// POST /api/v1/itineraries/:id/activities
+router.post('/:id/activities', itineraryController.addActivity);
 
-// Generate recommendations
-router.post('/generate', generateRecommendations);
-
-// Itinerary main routes
-router.route('/')
-  .get(getItineraries)
-  .post(itineraryValidation, validateRequest, createItinerary);
-
-router.route('/:id')
-  .get(getItinerary)
-  .put(updateItinerary)
-  .delete(deleteItinerary);
-
-// Activity routes
-router.route('/:id/activities')
-  .post(addActivity);
-
-router.route('/:id/activities/:activityId')
-  .put(updateActivity)
-  .delete(removeActivity);
-
-// Collaborator routes
-router.route('/:id/collaborators')
-  .post(addCollaborator);
-
-router.route('/:id/collaborators/:collaboratorId')
-  .delete(removeCollaborator);
+// GET /api/v1/itineraries/:id
+router.get('/:id', itineraryController.getUserItineraries);
 
 module.exports = router;
+
+router.put('/:id/activities/:activityId', itineraryController.updateActivity);
+router.delete('/:id/activities/:activityId', itineraryController.deleteActivity);

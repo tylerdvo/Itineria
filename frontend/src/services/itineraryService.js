@@ -1,134 +1,55 @@
-import api from './api';
+import axios from 'axios';
 
-// Get all itineraries
-const getItineraries = async () => {
-  try {
-    const response = await api.get('/itineraries');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Get single itinerary
-const getItinerary = async (id) => {
-  try {
-    const response = await api.get(`/itineraries/${id}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Create new itinerary
-const createItinerary = async (itineraryData) => {
-  try {
-    const response = await api.post('/itineraries', itineraryData);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Update itinerary
-const updateItinerary = async (id, updateData) => {
-  try {
-    const response = await api.put(`/itineraries/${id}`, updateData);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Delete itinerary
-const deleteItinerary = async (id) => {
-  try {
-    const response = await api.delete(`/itineraries/${id}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Add activity to itinerary
-const addActivity = async (itineraryId, activityData) => {
-  try {
-    const response = await api.post(`/itineraries/${itineraryId}/activities`, activityData);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Update activity in itinerary
-const updateActivity = async (itineraryId, activityId, activityData) => {
-  try {
-    const response = await api.put(
-      `/itineraries/${itineraryId}/activities/${activityId}`,
-      activityData
-    );
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Remove activity from itinerary
-const removeActivity = async (itineraryId, activityId) => {
-  try {
-    const response = await api.delete(`/itineraries/${itineraryId}/activities/${activityId}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Add collaborator to itinerary
-const addCollaborator = async (itineraryId, collaboratorId) => {
-  try {
-    const response = await api.post(`/itineraries/${itineraryId}/collaborators`, {
-      collaboratorId,
-    });
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Remove collaborator from itinerary
-const removeCollaborator = async (itineraryId, collaboratorId) => {
-  try {
-    const response = await api.delete(
-      `/itineraries/${itineraryId}/collaborators/${collaboratorId}`
-    );
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Generate itinerary recommendations
-const generateRecommendations = async (recommendationData) => {
-  try {
-    const response = await api.post('/itineraries/generate', recommendationData);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
+const API_URL = 'http://localhost:5001/api/v1/itineraries';
 
 const itineraryService = {
-  getItineraries,
-  getItinerary,
-  createItinerary,
-  updateItinerary,
-  deleteItinerary,
-  addActivity,
-  updateActivity,
-  removeActivity,
-  addCollaborator,
-  removeCollaborator,
-  generateRecommendations,
+  createActivity: async (userId, activityData) => {
+    try {
+      const response = await axios.post(`${API_URL}/${userId}/activities`, activityData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create activity:', error);
+      throw error;
+    }
+  },
+
+  getActivities: async (userId) => {
+    try {
+      const response = await axios.get(`${API_URL}/${userId}`);
+      console.log('API response:', response.data);
+      return response.data;
+    } catch (error) {
+      // For 404 errors (no itinerary found), return empty array instead of throwing
+      if (error.response && error.response.status === 404) {
+        console.log('No itineraries found for this user. Returning empty array.');
+        return [];
+      }
+      console.error('Failed to fetch activities:', error);
+      throw error;
+    }
+  },
+
+  updateActivity: async (itineraryId, activityId, activityData) => {
+    try {
+      // Make PUT request to update the activity
+      const response = await axios.put(`${API_URL}/${itineraryId}/activities/${activityId}`, activityData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update activity:', error);
+      throw error;
+    }
+  },
+
+  deleteActivity: async (itineraryId, activityId) => {
+    try {
+      // Make DELETE request to remove the activity
+      const response = await axios.delete(`${API_URL}/${itineraryId}/activities/${activityId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to delete activity:', error);
+      throw error;
+    }
+  }
 };
 
 export default itineraryService;
